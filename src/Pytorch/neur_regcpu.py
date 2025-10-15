@@ -1,0 +1,10 @@
+import torch, pandas as pd
+df = pd.read_csv("california.csv").dropna()
+X = torch.tensor(df.iloc[:, :-2].values, dtype=torch.float32)
+y = torch.tensor(df.iloc[:, -2].values, dtype=torch.float32).unsqueeze(1)
+X = (X - X.mean(0)) / (X.std(0) + 1e-8)
+y = (y - y.mean()) / y.std()
+model = torch.nn.Sequential(torch.nn.Linear(X.shape[1], 32), torch.nn.ReLU(), torch.nn.Linear(32, 1))
+opt = torch.optim.Adam(model.parameters(), lr=1e-3)
+for _ in range(1000): opt.zero_grad(); loss = torch.nn.functional.mse_loss(model(X), y); loss.backward(); opt.step()
+print(torch.corrcoef(torch.cat((y, model(X)), 1).T)[0,1].item())
