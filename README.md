@@ -1,22 +1,23 @@
-# Thesis / Paper Title
-This repository is a companion page for the following thesis / publication:
-> Author Names. Publication year. Thesis / Paper title. Publication venue / proceedings.
+# Title
+This repository is a companion page for the following work:
+> Paul David Anghel, Rudrajeet Chaudhuri, David Simon Fojou Parker, Moksh
+Thakran, and Anant Raj. 2025. A comparative study of Energy efficiency
+in Python-Based Machine Learning Libraries . In Green Lab 2025/2026 -
+Vrije Universiteit Amsterdam, September–October, 2025, Amsterdam (The
+Netherlands). 
 
-It contains all the material required for replicating the study, including: X, Y, and Z.
+It contains all the material required for replicating the study, including: used datasets, code and statistical calculations.
 
 ## How to cite us
-The scientific article describing design, execution, and main results of this study is available [here](https://www.google.com).<br> 
+The article describing design, execution, and main results of this study is available [here](https://www.google.com).<br> 
 If this study is helping your research, consider to cite it is as follows, thanks!
 
 ```
 @article{,
-  title={},
-  author={},
-  journal={},
-  volume={},
-  pages={},
-  year={},
-  publisher={}
+  title = {A comparative study of {Energy} efficiency in {Python}-{Based} {Machine} {Learning} {Libraries}},
+  author = {Anghel, Paul David and Chaudhuri, Rudrajeet and Parker, David Simon Fojou and Thakran, Moksh and Raj, Anant},
+  year={2025},
+  publisher={Green Lab, VU Amsterdam}
 }
 ```
 
@@ -39,12 +40,15 @@ This is the root directory of the repository. The directory is structured as fol
      .
      |
      |--- src/                             Source code used in the thesis / paper
-     |
+            |
+            |--- libraries/                implementation of the tests for specific libraries
      |--- documentation/                   Further structured documentation of the replication package content
      |
      |--- data/                            Data used in the thesis / paper 
             |
-            |--- additional_subfolder/     Subfolders should be further nested to increase readability                 
+            |--- camnugent/california-housing-prices/     Dataset of housing prices, used for regression tasks  
+            |
+            |--- yasserh/breast-cancer-dataset            Dataset of breast-cancer classifications, used for classification tasks  
   
 
 Usually, replication packages should include:
