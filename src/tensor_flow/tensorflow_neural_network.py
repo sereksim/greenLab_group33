@@ -5,7 +5,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 
 # Load dataset
-data = pd.read_csv("ds_breast_cancer.csv")  # make sure this file is in the same folder
+data = pd.read_csv("ds_breast_cancer.csv")
 
 # Detect the label column (M = malignant, B = benign)
 label_col = None
@@ -57,3 +57,4 @@ print(f"Accuracy: {accuracy:.4f}\n")
 
 print("\nClassification Report:")
 print(classification_report(y_test, y_pred))
+
