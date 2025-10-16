@@ -69,14 +69,13 @@ def run_tensorflow_linear():
 
     model = tf.keras.Sequential([
         tf.keras.Input(shape=(X_train.shape[1],)),
-        tf.keras.layers.Dense(64, activation='relu'),
-        tf.keras.layers.Dense(1)
+        tf.keras.layers.Dense(1, activation=None)
     ])
 
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=0.01),
+        optimizer=tf.keras.optimizers.SGD(learning_rate=0.001),
         loss='mse'
-    )
+    )   
 
     model.fit(X_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=0)
 
