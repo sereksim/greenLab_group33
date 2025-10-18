@@ -20,7 +20,7 @@ torch.manual_seed(RANDOM_SEED)
 
 PROJECT_ROOT = Path.cwd()
 PATH_DATA = PROJECT_ROOT / "data" / "camnugent" / "california-housing-prices" / "versions" / "1" / "housing.csv"
-RESULTS_PATH = PROJECT_ROOT / "src" / "libraries" / "pytorch_linear_regression"
+RESULTS_PATH = PROJECT_ROOT / "src" / "libraries" / "Pytorch"
 
 def save_measurements(r2: float, mse: float, rmse: float, mae: float) -> None:
     RESULTS_PATH.mkdir(parents=True, exist_ok=True)
@@ -115,3 +115,4 @@ def run_pytorch_linear():
 
 if __name__ == "__main__":
     run_pytorch_linear()
+
