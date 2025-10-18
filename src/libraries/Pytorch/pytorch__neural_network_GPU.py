@@ -21,7 +21,7 @@ torch.manual_seed(RANDOM_SEED)
 
 PROJECT_ROOT = Path.cwd()
 PATH_DATA = PROJECT_ROOT / "data" / "yasserh" / "breast-cancer-dataset" / "versions" / "1" / "breast-cancer.csv"
-RESULTS_PATH = PROJECT_ROOT / "src" / "libraries" / "pytorch"
+RESULTS_PATH = PROJECT_ROOT / "src" / "libraries" / "Pytorch"
 
 # GPU config
 if torch.cuda.is_available():
@@ -149,3 +149,4 @@ def run_pytorch_nn_GPU():
 
 if __name__ == "__main__":
     run_pytorch_nn_GPU()
+
