@@ -9,5 +9,5 @@ tqdm==4.66.5
 scikit-learn
 kagglehub
 pandas
-tensorflow
+tensorflow[and-cuda]
 torch
