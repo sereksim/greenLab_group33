@@ -22,7 +22,7 @@ LEARNING_RATE = 0.001
 torch.manual_seed(RANDOM_SEED)
 
 PROJECT_ROOT = Path.cwd()
-# *** CRITICAL CHANGE 1: Use the same dataset path ***
+
 PATH_DATA = PROJECT_ROOT / "data" / "yasserh" / "breast-cancer-dataset" / "versions" / "1" / "breast-cancer.csv"
 RESULTS_PATH = PROJECT_ROOT / "src" / "libraries" / "Pytorch"
 
@@ -55,7 +55,7 @@ def save_measurements(accuracy: float, num_classes: int) -> None:
 def run_pytorch_nn_classification():
     data = pd.read_csv(PATH_DATA)
     
-    # *** CRITICAL CHANGE 2: Identify and convert the 'M'/'B' label column ***
+    
     label_col = None
     for col in data.columns:
         if data[col].astype(str).str.lower().isin(['m', 'b']).any():
@@ -96,7 +96,7 @@ def run_pytorch_nn_classification():
     # Define Model, Loss, and Optimizer
     n_features = X_train_scaled.shape[1]
     
-    # *** CRITICAL CHANGE 3: Adjust model architecture for binary classification ***
+    
     model = nn.Sequential(
         nn.Linear(n_features, 32), # Changed from 64 to 32
         nn.ReLU(),
@@ -142,3 +142,4 @@ def run_pytorch_nn_classification():
 
 if __name__ == "__main__":
     run_pytorch_nn_classification()
+
