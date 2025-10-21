@@ -64,7 +64,7 @@ class RunnerConfig:
 
     """The time Experiment Runner will wait after a run completes.
     This can be essential to accommodate for cooldown periods on some systems."""
-    time_between_runs_in_ms: int               = 15000 # 🚨 15 seconds (15,000 ms) as required
+    time_between_runs_in_ms: int               = 15000 # 15 seconds (15,000 ms) as required
 
 
     def __init__(self):
