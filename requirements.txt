@@ -1,3 +1,4 @@
+    cupy-cuda12x>=13.3.0
     cuml-cu13>=25.10.0
     joblib>=1.5.2
     kagglehub>=0.3.13
