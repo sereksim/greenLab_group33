@@ -5,8 +5,8 @@ library(readr)
 library(GGally)
 
 # Load Data
-cpu <- read_csv("results/cpu_results/run_table_CPU.csv")
-gpu <- read_csv("results/gpu_results/run_table_GPU.csv")
+cpu <- read_csv("results/run_table_CPU.csv")
+gpu <- read_csv("results/run_table_GPU.csv")
 
 # Add platform column
 cpu <- cpu %>% mutate(Platform = "CPU")
