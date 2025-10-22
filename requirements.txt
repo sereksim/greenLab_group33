@@ -1,14 +1,1 @@
-numpy==1.26.4
-pandas==2.2.3
-python-dateutil==2.9.0.post0
-scikit-learn==1.7.1
-scikit-learn-intelex==2024.7.0 
-scipy==1.14.1
-joblib==1.4.2
-tqdm==4.66.5
-cuml==25.08.00
-scikit-learn
-kagglehub
-pandas
-tensorflow[and-cuda]
-torch
+cupy-cuda12x>=13.3.0
