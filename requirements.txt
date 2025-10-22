@@ -1,1 +1,13 @@
-cupy-cuda12x>=13.3.0
+    cupy-cuda12x>=13.3.0
+    cuml-cu13>=25.10.0
+    joblib>=1.5.2
+    kagglehub>=0.3.13
+    numpy>=2.2.6
+    pandas>=2.3.3
+    python-dateutil>=2.9.0.post0
+    scikit-learn>=1.7.2
+    scikit-learn-intelex>=2025.8.0
+    scipy>=1.16.2
+    tensorflow[and-cuda]>=2.20.0
+    torch>=2.8.0
+    tqdm>=4.67.1

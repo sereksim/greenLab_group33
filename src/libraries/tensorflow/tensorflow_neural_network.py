@@ -1,11 +1,12 @@
 import pandas as pd
+import os
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
 from datetime import datetime
 from pathlib import Path
-
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 RANDOM_SEED = 42
 TEST_SIZE = 0.2
 EPOCHS = 100
