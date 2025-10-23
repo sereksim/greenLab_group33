@@ -1,0 +1,3 @@
+NOTE:
+For GPU runner config and NN_CPU runner config files the path they were located in was /experiment-runner/examples/ML
+The internal paths in the files are consistent regardless of system when downloaded with the rest of this directory
