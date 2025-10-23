@@ -1,5 +1,3 @@
-# MLCompareRunnerConfig.py - Final Orchestrator
-
 # ================================ FRAMEWORK IMPORTS ================================
 from EventManager.Models.RunnerEvents import RunnerEvents
 from EventManager.EventSubscriptionController import EventSubscriptionController
@@ -7,318 +5,303 @@ from ConfigValidator.Config.Models.RunTableModel import RunTableModel
 from ConfigValidator.Config.Models.FactorModel import FactorModel
 from ConfigValidator.Config.Models.RunnerContext import RunnerContext
 from ConfigValidator.Config.Models.OperationType import OperationType
-from ProgressManager.Output.OutputProcedure import OutputProcedure as output
-# from Plugins.Profilers.Ps import Ps # We don't need Ps, we use PowerJoular
+from Plugins.Profilers.PowerJoular import PowerJoular
+from ProgressManager.Output.OutputProcedure import OutputProcedure as Output
 
-from typing import Dict, List, Any, Optional
+from typing import Dict, Any, Optional
 from pathlib import Path
-from os.path import dirname, realpath
 
 # ================================ CUSTOM IMPORTS ================================
-import numpy as np
 import time
 import subprocess
-import shlex
 import pandas as pd
-import sys # For custom errors/exiting if needed
 import os
-# --- CONFIGURATION CONSTANTS (Defined outside class for easy access) ---
-PROJECT_ROOT = Path("/home/rudexp/Downloads/greenLab_group33-main")
-OUTPUT_DIR = PROJECT_ROOT / "experiment_results"
-RUN_ORDER_FILE = PROJECT_ROOT / "run_order.csv" # Initial path (will be changed for GPU block)
 
-# --- GLOBAL VARIABLES ---
-RUN_SEQUENCE = []
-os.makedirs(OUTPUT_DIR / "raw_powerjoular_data", exist_ok=True) # Ensure powerjoular dir exists
+# --- CONFIGURATION CONSTANTS ---
+PROJECT_ROOT = Path("/media/user/data_usb/green_lab_pip")
+OUTPUT_DIR = PROJECT_ROOT / "results" / "RaspPi"
+PATH_CANCER = PROJECT_ROOT / "data" / "yasserh" / "breast-cancer-dataset" / "versions" / "1" / "breast-cancer.csv"
 
-# --- HELPER FUNCTION ---
-def load_run_sequence():
-    """Loads the run sequence from the external CSV file."""
-    try:
-        df = pd.read_csv(RUN_ORDER_FILE)
-        return df['ML_Library'].tolist()
-    except FileNotFoundError:
-        output.console_log(f"ERROR: Run order file not found at {RUN_ORDER_FILE}", is_error=True)
-        # Exit is handled outside the class, but we use sys.exit here for safety in a real script.
-        # However, for framework integration, we'll just return an empty list and let the framework fail gracefully.
-        return []
-    except KeyError:
-        output.console_log("ERROR: Run order CSV must contain a column named 'ML_Library'", is_error=True)
-        return []
-
-# Load the sequence immediately when the script runs
-RUN_SEQUENCE = load_run_sequence()
 
 # ================================ FRAMEWORK CLASS ================================
 
 class RunnerConfig:
-    ROOT_DIR = PROJECT_ROOT # Set ROOT_DIR to the actual project root
-    
+    ROOT_DIR = PROJECT_ROOT  # Set ROOT_DIR to the actual project root
+
     # ================================ USER SPECIFIC CONFIG ================================
     """The name of the experiment."""
-    name:                    str               = "ML_Energy_Comparison_CPU_Only"
+    name: str = "ML_Energy_Comparison_CPU_Only"
 
     """The path in which Experiment Runner will create a folder with the name `self.name`, in order to store the
     results from this experiment. (Path does not need to exist - it will be created if necessary.)
     Output path defaults to the config file's path, inside the folder 'experiments'"""
-    results_output_path:     Path              = OUTPUT_DIR # Use our custom output directory
+    results_output_path: Path = OUTPUT_DIR  # Use our custom output directory
 
     """Experiment operation type. Unless you manually want to initiate each run, use `OperationType.AUTO`."""
-    operation_type:          OperationType     = OperationType.AUTO
+    operation_type: OperationType = OperationType.AUTO
 
     """The time Experiment Runner will wait after a run completes.
     This can be essential to accommodate for cooldown periods on some systems."""
-    time_between_runs_in_ms: int               = 30000 # 🚨 30 seconds (30,000 ms) as required
+    time_between_runs_in_ms: int = 15000
+
+    # repetitions per valid combination of library and model
+    repetitions = 15
+    block_size = 45  # runs before cooldown pause
+    block_cooldown_in_sec = 300  # 5 min gap between blocks
 
     # Dynamic configurations can be one-time satisfied here before the program takes the config as-is
     # e.g. Setting some variable based on some criteria
     def __init__(self):
         """Executes immediately after program start, on config load"""
-        
-        # 🚨 CRITICAL: HARD-CODED METRICS PATHS TO MATCH ML SCRIPTS' OUTPUT LOCATION
+        Output.console_log(f"--- Initialize RunnerConfig ---")
+
+        # Metrics paths for each library-model combination
         self.metrics_log_paths = {
-            'TF_CPU': PROJECT_ROOT / "src" / "libraries" / "tensorflow" / "metrics_tfNN_CPU.csv",
-            'PT_CPU': PROJECT_ROOT / "src" / "libraries" / "Pytorch" / "metrics_ptNN_CPU.csv",
-            'TF_GPU': PROJECT_ROOT / "src" / "libraries" / "tensorflow" / "metrics_tfNN_GPU.csv",
-            'PT_GPU': PROJECT_ROOT / "src" / "libraries" / "Pytorch" / "metrics_ptNN_GPU.csv",
+            'TensorFlow_linReg': PROJECT_ROOT / "src" / "libraries" / "tensorflow" / "metrics_tfReg.csv",
+            'PyTorch_linReg': PROJECT_ROOT / "src" / "libraries" / "Pytorch" / "metrics_ptLR.csv",
+            'TensorFlow_logReg': PROJECT_ROOT / "src" / "libraries" / "tensorflow" / "metrics_logistic.csv",
+            'PyTorch_logReg': PROJECT_ROOT / "src" / "libraries" / "Pytorch" / "metrics_ptLogR.csv",
+            'sklearn_linReg': PROJECT_ROOT / "src" / "libraries" / "scikit-learn" / "metrics_linReg.csv",
+            'sklearn_logReg': PROJECT_ROOT / "src" / "libraries" / "scikit-learn" / "metrics_logReg.csv",
+        }
+
+        # Script paths for each library-model combination
+        self.script_paths = {
+            'TensorFlow_linReg': PROJECT_ROOT / "src" / "libraries" / "tensorflow" / "tensorflow_linear_regression.py",
+            'PyTorch_linReg': PROJECT_ROOT / "src" / "libraries" / "Pytorch" / "pytorch_linear_regression.py",
+            'TensorFlow_logReg': PROJECT_ROOT / "src" / "libraries" / "tensorflow" / "tensorflow_logistic_regression.py",
+            'PyTorch_logReg': PROJECT_ROOT / "src" / "libraries" / "Pytorch" / "pytorch_logistic_regression.py",
+            'sklearn_linReg': PROJECT_ROOT / "src" / "libraries" / "scikit-learn" / "scikit-learn-linReg.py",
+            'sklearn_logReg': PROJECT_ROOT / "src" / "libraries" / "scikit-learn" / "scikit-learn-logReg.py",
         }
         self.power_process = None
         self.power_csv_path = None
-        
+
+        self.completed_runs = 0
+
         EventSubscriptionController.subscribe_to_multiple_events([
             (RunnerEvents.BEFORE_EXPERIMENT, self.before_experiment),
-            (RunnerEvents.BEFORE_RUN        , self.before_run        ),
-            (RunnerEvents.START_RUN         , self.start_run         ),
-            (RunnerEvents.START_MEASUREMENT , self.start_measurement),
-            (RunnerEvents.INTERACT          , self.interact          ),
-            (RunnerEvents.STOP_MEASUREMENT  , self.stop_measurement ),
-            (RunnerEvents.STOP_RUN          , self.stop_run          ),
-            (RunnerEvents.POPULATE_RUN_DATA , self.populate_run_data),
-            (RunnerEvents.AFTER_EXPERIMENT  , self.after_experiment )
+            (RunnerEvents.BEFORE_RUN, self.before_run),
+            (RunnerEvents.START_RUN, self.start_run),
+            (RunnerEvents.START_MEASUREMENT, self.start_measurement),
+            (RunnerEvents.INTERACT, self.interact),
+            (RunnerEvents.STOP_MEASUREMENT, self.stop_measurement),
+            (RunnerEvents.STOP_RUN, self.stop_run),
+            (RunnerEvents.POPULATE_RUN_DATA, self.populate_run_data),
+            (RunnerEvents.AFTER_EXPERIMENT, self.after_experiment)
         ])
         self.run_table_model = None  # Initialized later
-        output.console_log("Custom config loaded")
+        Output.console_log("Custom config loaded")
 
     def create_run_table_model(self) -> RunTableModel:
-        """Creates a run table model that generates two blocks of runs:
-        15 repetitions of TF_CPU/PT_CPU, followed by 15 repetitions of TF_GPU/PT_GPU."""
-
-        # 1. Define Factors
-        # Factor to control the block order (CPU runs first, then GPU runs)
-        block_factor = FactorModel("Block_Type", ['CPU_Block'])#'GPU_Block'
-        
-        # Factor for the library type (used to ensure 15 reps of each)
-        # Use only the base library names, as Block_Type handles the CPU/GPU suffix
-        library_factor = FactorModel("Library_Name", ['TF', 'PT'])
-
-        # 2. Define Exclusions (CRITICAL FOR BLOCK LOGIC)
-        # The framework generates ALL combinations. We exclude the impossible/unwanted ones:
-        exclude_combinations = [
-            # Exclude running TF/PT in the CPU Block (redundant, handled by factor below)
-            # {block_factor: ['CPU_Block'], library_factor: ['TF', 'PT']}, 
-            
-            # Exclude running TF/PT in the GPU Block (redundant, handled by factor below)
-            # {block_factor: ['GPU_Block'], library_factor: ['TF', 'PT']},
+        """Creates a run table model for CPU-only library comparison."""
+        Output.console_log(f"--- Create run table (\"create_run_table_model()\")---")
+        # Define factors for library and model type
+        library_factor = FactorModel("Library", ['TensorFlow', 'PyTorch', 'sklearn'])
+        model_factor = FactorModel("Model_Type", ['linReg', 'logReg'])
+        data_columns = [
+            "Timestamp_Start",
+            "Duration_ns",
+            "CPU_Energy_J",
+            "Accuracy_Pct",
+            "Precision_Pct",
+            "MSE",
+            "r2_score",
+            "Model_Name"
         ]
-
-        # 3. Create the RunTableModel
         self.run_table_model = RunTableModel(
-            factors=[block_factor, library_factor],
-            exclude_combinations=exclude_combinations,
-            repetitions=15, # Total repetitions per unique combination of factors (15 * 2 * 2 = 60 runs)
-            data_columns=[
-                "Timestamp_Start",
-                "Total_Energy_J",
-                "CPU_Energy_J",
-                "GPU_Energy_J",
-                "Accuracy_Pct",
-                "Model_Name"
-            ]
+            factors=[library_factor, model_factor],
+            repetitions=self.repetitions,  # number of repetitions per valid combination
+            data_columns=data_columns,
+            shuffle=True  # randomize order
         )
         return self.run_table_model
 
     def before_experiment(self) -> None:
         """Perform any activity required before starting the experiment here."""
 
-        output.console_log("Config.before_experiment() called! Ensuring directories exist.")
+        Output.console_log("--- Prepare Experiment (\"before_experiment()\")")
 
-        # We must ensure the raw power data directory exists before any runs start
+        # Ensure raw power data directory exists
         raw_power_dir = self.results_output_path / "raw_powerjoular_data"
-        
-        # You must have 'import os' at the top of the file for os.makedirs() to work
-        if not raw_power_dir.exists():
-            os.makedirs(raw_power_dir)
+        os.makedirs(raw_power_dir, exist_ok=True)
 
-    # NOTE: No compilation is required as ML scripts are Python files
-
-    
-       
+        Output.console_log(
+            f"Experiment will run in {self.repetitions} randomized repetitions per run, {self.block_size} runs per block, "
+            f"with {self.block_cooldown_in_sec / 60:.0f} min cooldowns between blocks.")
 
     def before_run(self) -> None:
-        """Perform any activity required before starting a run.
-        Note: Context is required by the framework, but often unused here."""
-        
-        # You can add logic here if you need to perform checks/setup for each run,
-        # but based on your previous code, 'pass' is sufficient for now.
+        """Perform any activity required before starting a run."""
         pass
 
     def start_run(self, context: RunnerContext) -> None:
-        """
-        Performs activity required for starting the run.
-        Starts the PowerJoular profiler and stores the script path for 'interact'.
-        """
+        """Start the run, including PowerJoular profiler."""
+        Output.console_log(f"--- Start Run (\"start_run()\")---")
+        # Get current run's library and model type
+        current_library = context.execute_run['Library']
+        current_model = context.execute_run['Model_Type']
 
-        # Fetch the factor values for the current run
-        current_block = context.execute_run['Block_Type']
-        current_library = context.execute_run['Library_Name']
-        
-        # Dynamically determine the full library code
-        # This correctly generates 'TF_CPU', 'PT_GPU', etc.
-        full_library_code = f"{current_library}_{current_block.split('_')[0]}" 
-        
-        # CRITICAL: Dynamically select the script path based on the generated factors
-        # You can move this dictionary definition to __init__ if you want to clean up start_run
-        LIBRARY_MAP = {
-            'TF_CPU': self.ROOT_DIR / "src" / "libraries" / "tensorflow" / "tensorflow_neural_network.py",
-            'PT_CPU': self.ROOT_DIR / "src" / "libraries" / "Pytorch" / "pytorch_neural_network.py",
-            'TF_GPU': self.ROOT_DIR / "src" / "libraries" / "tensorflow" / "tensorflow_neural_network_GPU.py",
-            'PT_GPU': self.ROOT_DIR / "src" / "libraries" / "Pytorch" / "pytorch_neural_network_GPU.py",
-        }
-        
-        ml_script_path = LIBRARY_MAP.get(full_library_code)
-        
-        # --- Error Check (FIXED: removed unsupported 'is_error=True') ---
+        # Create the combined key
+        library_model_key = f"{current_library}_{current_model}"
+
+        # Get the script path
+        ml_script_path = self.script_paths.get(library_model_key)
+
         if not ml_script_path:
-            # Note: Removed is_error=True since it caused a TypeError earlier
-            output.console_log(f"ERROR: Could not find script path for combination: {full_library_code}")
-            raise ValueError(f"Invalid library combination: {full_library_code}")
+            Output.console_log(f"ERROR: No script found for {library_model_key}")
+            raise ValueError(f"Invalid library-model combination: {library_model_key}")
 
-        # --- 1. State Storage (CRITICAL) ---
-        # Store the path and code for use in 'interact' and 'populate_run_data'
+        # Store for later use
         self.current_ml_script_path = ml_script_path
-        self.current_library_code = full_library_code
+        self.current_library_model = library_model_key
 
-        # --- 2. Start PowerJoular (CRITICAL) ---
-        # Define the output path for this specific run's raw power data
         self.power_csv_path = self.results_output_path / "raw_powerjoular_data" / f"{context.run_dir.name}.csv"
 
-        output.console_log(f"--- Starting PowerJoular for {context.run_dir.name} ({full_library_code}) ---")
-        
+        Output.console_log(f"--- Starting {context.run_dir.name} ({library_model_key}) ---")
+
         try:
-            # Use sudo as verified earlier, and start the process in the background
-            self.power_process = subprocess.Popen(
-                ['sudo', '/usr/bin/powerjoular', '-o', str(self.power_csv_path)],
+            self.start = time.perf_counter_ns()
+            self.target = subprocess.Popen(
+                ['python', str(ml_script_path)],
+                cwd=self.ROOT_DIR,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE
             )
-        except FileNotFoundError:
-             output.console_log("ERROR: powerjoular not found. Check installation and $PATH.")
-             raise 
-             
-        # Allow PowerJoular a moment to initialize before the benchmark starts
-        time.sleep(1)
-        
+            Output.console_log(f"Started target process with PID: {self.target.pid}")
+        except FileNotFoundError as e:
+            Output.console_log(f"ERROR: Script not found at {ml_script_path}")
+            raise
+
+
     def start_measurement(self, context: RunnerContext) -> None:
         """Perform any activity required for starting measurements."""
-        # Measurement starts when powerjoular is launched in start_run.
-        pass
-        
-
-
+        Output.console_log(f"--- Starting PowerJoular (\"start_measurement()\")---")
+        # Set up the powerjoular object, provide an (optional) target and output file name
+        self.meter = PowerJoular(out_file=self.power_csv_path, target_pid=self.target.pid)
+        # Start measuring with powerjoular
+        self.meter.start()
+        Output.console_log(f"PowerJoular monitoring PID {self.target.pid}")
 
     def interact(self, context: RunnerContext) -> None:
-        """Performs interaction with the running target system."""
+        """Wait for the ML script to finish."""
 
-        output.console_log(f"--- Running Benchmark: {self.current_library_code} ---")
-        
-        # Execute the ML script using the stored path
-        try:
-            subprocess.run(
-                ['python', str(self.current_ml_script_path)],
-                cwd=self.ROOT_DIR,
-                check=True, 
-                capture_output=False
+        # Wait for process to finish and capture output
+        stdout, stderr = self.target.communicate()
+        self.duration = time.perf_counter_ns() - self.start
+
+        # Check if it completed successfully
+        if self.target.returncode != 0:
+            Output.console_log(f"ERROR: Benchmark failed with return code {self.target.returncode}")
+            Output.console_log(f"STDOUT: {stdout.decode('utf-8', errors='replace')}")
+            Output.console_log(f"STDERR: {stderr.decode('utf-8', errors='replace')}")
+            raise subprocess.CalledProcessError(
+                self.target.returncode,
+                self.current_ml_script_path,
+                output=stdout,
+                stderr=stderr
             )
-        except subprocess.CalledProcessError as e:
-            output.console_log(f"ERROR: Benchmark script failed for run {context.run_dir.name}. Output: {e.output.decode() if e.output else 'No output'}")
-            self.power_process.terminate() 
-            raise 
-
-        output.console_log("Program finished.")
-        # No interaction. We just run it until the target finishes.
 
     def stop_measurement(self, context: RunnerContext) -> None:
         """Perform any activity here required for stopping measurements."""
+        self.meter.stop()
+        Output.console_log(f"--- Stopping PowerJoular (\"stop_measurement()\")---")
 
-        output.console_log(f"--- Stopping PowerJoular ---")
-        if self.power_process:
-            self.power_process.terminate() 
-            self.power_process.wait()
 
     def stop_run(self, context: RunnerContext) -> None:
         """Perform any activity here required for stopping the run.
         Activities after stopping the run should also be performed here."""
-        
-        # NOTE: The required 30-second cooldown is handled automatically by 
-        # `time_between_runs_in_ms = 30000` in the class variables.
-        pass # No extra cleanup needed, already handled in stop_measurement
-    
+        if self.target.poll() is None:
+            self.target.kill()
+            self.target.wait()
+        self.completed_runs += 1
+        Output.console_log(f"Completed run #{self.completed_runs} (\"stop_run()\")")
+
+        # Every block_size runs, take a long pause
+        if self.completed_runs % self.block_size == 0 and self.completed_runs < 150:
+            Output.console_log(
+                f"=== Block {self.completed_runs // self.block_size} finished. "
+                f"Cooling down for {self.block_cooldown_in_sec / 60:.0f} minutes... ==="
+            )
+            time.sleep(self.block_cooldown_in_sec)
+
     def populate_run_data(self, context: RunnerContext) -> Optional[Dict[str, Any]]:
         """Parse and process any measurement data here.
         You can also store the raw measurement data under `context.run_dir`
         Returns a dictionary with keys `self.run_table_model.data_columns` and their values populated"""
+        Output.console_log(f"--- Saving Measurements (\"populate_run_data()\")---")
 
-        current_library = context.execute_run['Library_Name']
-        current_block_value = context.execute_run['Block_Type']
-        current_device = current_block_value.split('_')[0]
-        full_benchmark_key = f"{current_library}_{current_device}"
         # --- 1. ENERGY CALCULATION (From unique PowerJoular CSV) ---
+        duration = -999999
         try:
-            df_power = pd.read_csv(self.power_csv_path, header=None)
-            df_power.columns = ['Timestamp', 'Delta_T', 'Total_P', 'CPU_P', 'GPU_P']
-            
-            # Convert power (W) and time (s) to energy (J = W*s)
-            cpu_energy = (df_power['CPU_P'] * df_power['Delta_T']).sum()
-            gpu_energy = (df_power['GPU_P'] * df_power['Delta_T']).sum()
-            total_energy = cpu_energy + gpu_energy
-            timestamp = df_power['Timestamp'].iloc[0]
+            df_power = self.meter.parse_log(self.meter.target_logfile)
+            print(df_power.info())
+            print(df_power.info)
+            df_power['Date'] = pd.to_datetime(df_power['Date'])  # TODO: explicitly specify unit ms?
+            df_power['Delta_T'] = df_power['Date'].diff()
+            #print(df_power.info)
+            # First row will have NaN delta, because there is no start-timestamp to calculate duration
+            mean_delta = df_power['Delta_T'].iloc[1:].mean()  # ignore NaN in first
+            df_power.loc[0, 'Delta_T'] = mean_delta  # set delta of first row to average
+
+            # Calculate energy (J = W * s)
+            delta_t_seconds = df_power['Delta_T'].dt.total_seconds()
+            cpu_energy = (df_power['CPU Power'] * delta_t_seconds).sum()
+            timestamp = df_power['Date'].iloc[0]
+            duration = self.duration
+            #print(df_power.info)
         except Exception as e:
-            output.console_log(f"WARNING: Could not process PowerJoular data for {context.run_dir.name}. Error: {e}", is_error=True)
-            total_energy, cpu_energy, gpu_energy, timestamp = 0.0, 0.0, 0.0, "FAILED"
+            Output.console_log(
+                f"WARNING: Error in processing PowerJoular data for {context.run_dir.name}. Error: "
+                f"{e}\n{e.__traceback__}")
+            cpu_energy, timestamp = 0.0, "FAILED"
 
-
-        # --- 2. ACCURACY EXTRACTION (From the specific ML Metrics CSV - LAST ROW) ---
-        metrics_log_path = self.metrics_log_paths[full_benchmark_key] # Use the hard-coded path
-
+        # --- 2. ACCURACY EXTRACTION ---
+        metrics_log_path = self.metrics_log_paths[self.current_library_model]
+        accuracy = -999999
+        precision = -999999
+        MSE = -999999
+        r2_score = -999999
         try:
             df_metrics = pd.read_csv(metrics_log_path)
-            
-            # Select the very last row, which must correspond to the run that just completed
-            final_row = df_metrics.iloc[-1] 
-            
-            # Extract and format metrics
-            accuracy = final_row['accuracy']
+            #print(df_metrics.info())
+            # Select last row, the run that just completed
+            final_row = df_metrics.iloc[-1]
+            measurements_class, measurements_reg = False, False
+            if 'accuracy' in df_metrics.columns:
+                accuracy = final_row['accuracy'] * 100  # Convert accuracy to percentage
+                measurements_class = True
+            if 'precision' in df_metrics.columns:
+                precision = final_row['precision'] * 100  # Convert precision to percentage
+                measurements_class = True
+            if 'MSE' in df_metrics.columns:
+                MSE = final_row['MSE']
+                measurements_reg = True
+            if 'r2_score' in df_metrics.columns:
+                r2_score = final_row['r2_score']
+                measurements_reg = True
+            if not measurements_reg and not measurements_class:
+                raise Exception("Missing measurements for accuracy etc.")
             model_name = final_row['model']
-
         except Exception as e:
-            output.console_log(f"WARNING: Could not process Metrics CSV at {metrics_log_path} for {context.run_dir.name}. Error: {e}", is_error=True)
-            accuracy, model_name = 0.0, "FAILED"
+            Output.console_log(
+                f"WARNING: Could not process Metrics CSV at {metrics_log_path} for {context.run_dir.name}. Error: {e}\n{e.__traceback__}")
+            model_name = "FAILED"
 
         # --- 3. Return Data for the Experiment Runner Table ---
         return {
             "Timestamp_Start": timestamp,
-            "Total_Energy_J": total_energy,
+            "Duration_ns":duration,
             "CPU_Energy_J": cpu_energy,
-            "GPU_Energy_J": gpu_energy,
-            "Accuracy_Pct": accuracy * 100, # Convert accuracy to percentage
+            "Accuracy_Pct": accuracy,
+            "Precision_Pct": precision,
+            "MSE": MSE,
+            "r2_score": r2_score,
             "Model_Name": model_name
         }
 
     def after_experiment(self) -> None:
-        """Perform any activity required after stopping the experiment here
-        Invoked only once during the lifetime of the program."""
-        output.console_log("Experiment complete. Remember to manually initiate the long cooldown now.")
+        Output.console_log("Experiment complete. (\"after_experiment()\")")
         pass
 
     # ================================ DO NOT ALTER BELOW THIS LINE ================================
-    experiment_path:             Path              = None
+    experiment_path: Path = None
